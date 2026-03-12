@@ -133,6 +133,8 @@ const useVideoThumbnails = (videoUrl: string | null, count: number = 8) => {
   return { thumbnails, isGenerating };
 };
 
+import { ProjectHistorySidebar, Project } from './ProjectHistorySidebar';
+
 export default function CoverEditor() {
   const [lang, setLang] = useState<'en' | 'zh'>('en');
   const t = i18n[lang];
@@ -155,6 +157,137 @@ export default function CoverEditor() {
   const [fontSize, setFontSize] = useState(120);
   const [textColor, setTextColor] = useState('#ffffff');
 
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [isSelected, setIsSelected] = useState(false);
+  
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('opencovermaker_projects');
+    if (saved) {
+      try {
+        setProjects(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse projects', e);
+      }
+    }
+  }, []);
+
+  const saveProjects = (newProjects: Project[]) => {
+    setProjects(newProjects);
+    try {
+      localStorage.setItem('opencovermaker_projects', JSON.stringify(newProjects));
+    } catch (e) {
+      console.warn('Failed to save projects to localStorage (might be too large)', e);
+    }
+  };
+
+  const handleSaveCurrentProject = async () => {
+    if (!exportRef.current) return;
+    
+    // Generate a small thumbnail
+    let thumbnail = '';
+    try {
+      thumbnail = await toPng(exportRef.current, {
+        quality: 0.1,
+        pixelRatio: 0.1,
+        cacheBust: true,
+      });
+    } catch (e) {
+      console.warn('Failed to generate thumbnail', e);
+    }
+
+    const config = {
+      bgType, bgColor, bgImage, videoUrl, videoTime,
+      ratio, text, textStyleId, fontSize, textColor,
+      x: x.get(), y: y.get()
+    };
+
+    const now = Date.now();
+    let updatedProjects = [...projects];
+    
+    if (currentProjectId) {
+      const idx = updatedProjects.findIndex(p => p.id === currentProjectId);
+      if (idx !== -1) {
+        updatedProjects[idx] = {
+          ...updatedProjects[idx],
+          updatedAt: now,
+          config,
+          thumbnail,
+          name: text.slice(0, 20) || 'Untitled'
+        };
+      } else {
+        const newProject = { id: currentProjectId, name: text.slice(0, 20) || 'Untitled', updatedAt: now, config, thumbnail };
+        updatedProjects = [newProject, ...updatedProjects];
+      }
+    } else {
+      const newId = Math.random().toString(36).substring(2, 9);
+      setCurrentProjectId(newId);
+      const newProject = { id: newId, name: text.slice(0, 20) || 'Untitled', updatedAt: now, config, thumbnail };
+      updatedProjects = [newProject, ...updatedProjects];
+    }
+    
+    saveProjects(updatedProjects);
+  };
+
+  // Auto-save debounced
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleSaveCurrentProject();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [bgType, bgColor, bgImage, videoUrl, videoTime, ratio, text, textStyleId, fontSize, textColor]);
+
+  const handleLoadProject = (project: Project) => {
+    setCurrentProjectId(project.id);
+    const c = project.config;
+    if (c) {
+      setBgType(c.bgType || 'color');
+      setBgColor(c.bgColor || '#1a1a1a');
+      setBgImage(c.bgImage || null);
+      setVideoUrl(c.videoUrl || null);
+      setVideoTime(c.videoTime || 0);
+      setRatio(c.ratio || '16:9');
+      setText(c.text || '');
+      setTextStyleId(c.textStyleId || 'orange-3d');
+      setFontSize(c.fontSize || 120);
+      setTextColor(c.textColor || '#ffffff');
+      x.set(c.x || 0);
+      y.set(c.y || 0);
+    }
+  };
+
+  const handleNewProject = () => {
+    setCurrentProjectId(null);
+    setBgType('color');
+    setBgColor('#1a1a1a');
+    setBgImage(null);
+    setVideoUrl(null);
+    setVideoTime(0);
+    setRatio('16:9');
+    setText(i18n[lang].defaultText);
+    setTextStyleId('orange-3d');
+    setFontSize(120);
+    setTextColor('#ffffff');
+    x.set(0);
+    y.set(0);
+  };
+
+  const handleDeleteProject = (id: string) => {
+    const updated = projects.filter(p => p.id !== id);
+    saveProjects(updated);
+    if (currentProjectId === id) {
+      handleNewProject();
+    }
+  };
+
   const prevRatioRef = useRef(ratio);
   useEffect(() => {
     if (prevRatioRef.current !== ratio) {
@@ -169,15 +302,6 @@ export default function CoverEditor() {
     if (lang === 'en' && text === i18n.zh.defaultText) setText(i18n.en.defaultText);
     if (lang === 'zh' && text === i18n.en.defaultText) setText(i18n.zh.defaultText);
   }, [lang, text]);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  const [isSelected, setIsSelected] = useState(false);
-  
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
 
   const handleDragStart = (e: React.PointerEvent) => {
     // Only handle left click
@@ -351,6 +475,14 @@ export default function CoverEditor() {
 
   return (
     <div className="flex flex-col lg:flex-row flex-1 bg-[#0A0A0A] text-white overflow-hidden font-sans">
+      <ProjectHistorySidebar
+        currentProjectId={currentProjectId}
+        onLoadProject={handleLoadProject}
+        onNewProject={handleNewProject}
+        projects={projects}
+        onDeleteProject={handleDeleteProject}
+      />
+      
       {/* Canvas Area */}
       <div ref={containerRef} className="flex-1 relative flex items-center justify-center bg-[#0A0A0A] p-4 lg:p-8 overflow-hidden">
         {/* Scale Wrapper */}
@@ -428,9 +560,9 @@ export default function CoverEditor() {
       </div>
 
       {/* Controls Area */}
-      <div className="w-full lg:w-[400px] bg-[#111111] border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col h-[50vh] lg:h-full shrink-0 z-20">
+      <div className="w-full lg:w-[400px] bg-[#141414] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col h-[50vh] lg:h-full shrink-0 z-20">
         {/* Tabs */}
-        <div className="flex border-b border-white/5">
+        <div className="flex border-b border-white/10">
           {[
             { id: 'background', label: t.bgTab, icon: ImageIcon },
             { id: 'text', label: t.textTab, icon: Type },
@@ -464,7 +596,7 @@ export default function CoverEditor() {
                       onClick={() => setRatio(key as any)}
                       className={cn(
                         "py-3 rounded-xl text-sm font-medium transition-colors border",
-                        ratio === key ? "bg-[#00FF66]/10 text-[#00FF66] border-[#00FF66]" : "bg-black text-neutral-400 border-white/5 hover:bg-white/5"
+                        ratio === key ? "bg-[#00FF66]/10 text-[#00FF66] border-[#00FF66]" : "bg-[#0A0A0A] text-neutral-400 border-white/10 hover:bg-white/5"
                       )}
                     >
                       {(t as any)[val.labelKey]}
@@ -476,7 +608,7 @@ export default function CoverEditor() {
               {/* Upload */}
               <div>
                 <label className="block text-sm font-medium text-neutral-400 mb-3">{t.uploadTitle}</label>
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/10 rounded-xl hover:border-[#00FF66]/50 hover:bg-[#00FF66]/5 transition-colors cursor-pointer bg-black">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/10 rounded-xl hover:border-[#00FF66]/50 hover:bg-[#00FF66]/5 transition-colors cursor-pointer bg-[#0A0A0A]">
                   <Upload className="w-8 h-8 text-neutral-500 mb-2" />
                   <span className="text-sm text-neutral-400">{t.uploadDesc}</span>
                   <input 
@@ -490,13 +622,13 @@ export default function CoverEditor() {
 
               {/* Video Frame Slider */}
               {bgType === 'video' && videoDuration > 0 && (
-                <div className="bg-black p-4 rounded-xl border border-white/5">
+                <div className="bg-[#0A0A0A] p-4 rounded-xl border border-white/10">
                   <label className="flex justify-between text-sm font-medium text-neutral-300 mb-3">
                     <span>{t.extractFrame}</span>
                     <span className="text-neutral-500">{videoTime.toFixed(1)}s / {videoDuration.toFixed(1)}s</span>
                   </label>
                   
-                  <div className="relative w-full h-14 bg-[#111111] rounded-lg overflow-hidden flex border border-white/5">
+                  <div className="relative w-full h-14 bg-[#141414] rounded-lg overflow-hidden flex border border-white/10">
                     {isGeneratingThumbs ? (
                       <div className="absolute inset-0 flex items-center justify-center text-xs text-neutral-500 animate-pulse">
                         {t.generatingThumbs}
@@ -557,7 +689,7 @@ export default function CoverEditor() {
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  className="w-full h-32 bg-black border border-white/5 rounded-xl p-4 text-white placeholder-neutral-500 focus:outline-none focus:border-[#00FF66] resize-none transition-colors"
+                  className="w-full h-32 bg-[#0A0A0A] border border-white/10 rounded-xl p-4 text-white placeholder-neutral-500 focus:outline-none focus:border-[#00FF66] resize-none transition-colors"
                   placeholder={t.textPlaceholder}
                 />
               </div>
@@ -605,8 +737,8 @@ export default function CoverEditor() {
                     key={style.id}
                     onClick={() => setTextStyleId(style.id)}
                     className={cn(
-                      "h-32 rounded-xl border-2 flex flex-col items-center justify-center overflow-hidden relative transition-all bg-black",
-                      textStyleId === style.id ? "border-[#00FF66] bg-white/5" : "border-white/5 hover:border-white/20"
+                      "h-32 rounded-xl border-2 flex flex-col items-center justify-center overflow-hidden relative transition-all bg-[#0A0A0A]",
+                      textStyleId === style.id ? "border-[#00FF66] bg-white/5" : "border-white/10 hover:border-white/20"
                     )}
                   >
                     <div className="scale-[0.2] origin-center pointer-events-none absolute">

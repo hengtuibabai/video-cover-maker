@@ -1,20 +1,89 @@
+# OpenCoverMaker 🎨
+
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+  <p><strong>The open-source tool for creating beautiful, engaging covers for your videos, articles, and social media posts in seconds.</strong></p>
 </div>
 
-# Run and deploy your AI Studio app
+## 🌟 Features
 
-This contains everything you need to run your app locally.
+- **Multiple Canvas Ratios**: Support for 16:9 (Landscape), 9:16 (Portrait), 1:1 (Square), and 4:3 (Standard) to fit YouTube, TikTok, Instagram, and more.
+- **Rich Background Options**: 
+  - Upload your own images or videos.
+  - Extract specific frames from uploaded videos to use as the cover background.
+  - Choose from a curated palette of solid colors and gradients.
+- **Advanced Text Styling**: Add titles and subtitles with customizable fonts, colors, and pre-designed text styles (e.g., Neon, Glitch, 3D, Outline).
+- **Local Project History**: Your work is automatically saved to your browser's local storage. Seamlessly switch between recent projects, create new ones, or delete old drafts without needing an account.
+- **High-Quality Export**: Export your final cover design instantly as a high-resolution image.
+- **Dark Mode UI**: A sleek, professional, and distraction-free dark theme designed for creators.
 
-View your app in AI Studio: https://ai.studio/apps/81b95619-0aaf-468f-aab5-9d9387decd05
+## 🚀 Getting Started
 
-## Run Locally
+### Prerequisites
 
-**Prerequisites:**  Node.js
+- Node.js (v18 or higher recommended)
+- npm or yarn
 
+### Installation
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/OpenCoverMaker.git
+   cd OpenCoverMaker
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+4. Open your browser and navigate to `http://localhost:3000` (or the port specified in your terminal).
+
+## 🛠️ Tech Stack
+
+- **Framework**: [React 18](https://reactjs.org/)
+- **Build Tool**: [Vite](https://vitejs.dev/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **State Management**: React Hooks + LocalStorage
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+
+## 📂 Project Structure
+
+```text
+src/
+├── components/
+│   ├── layout/           # Header, Footer, MainLayout
+│   ├── CoverEditor.tsx   # Core editor component (Canvas & Controls)
+│   └── ProjectHistorySidebar.tsx # Left sidebar for local projects
+├── App.tsx               # Main application entry
+├── main.tsx              # React DOM rendering
+└── index.css             # Global styles and Tailwind configuration
+```
+
+## 🤝 Contributing
+
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## 🙏 Acknowledgments
+
+- Thanks to the open-source community for the amazing tools that made this project possible.
+- UI inspiration from modern creator tools and design platforms.
