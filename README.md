@@ -3,7 +3,7 @@
 <div align="center">
   <p><strong>The open-source tool for creating beautiful, engaging covers for your videos, articles, and social media posts in seconds.</strong></p>
   <br />
-  <img src="./statics/p1.png" alt="OpenCoverMaker Screenshot" width="800" />
+  <img src="./p1.png" alt="OpenCoverMaker Screenshot" width="800" />
 </div>
 
 ## 🌟 Features
