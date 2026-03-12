@@ -1,0 +1,625 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { motion, useMotionValue } from 'motion/react';
+import { toPng } from 'html-to-image';
+import { Upload, Download, Image as ImageIcon, Type, Palette } from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+import { i18n, aspectRatios, TEXT_BG_STYLES } from '../constants/editor';
+import { TextOverlay } from './editor/TextOverlay';
+
+const useVideoFrame = (videoUrl: string | null, time: number) => {
+  const [frameUrl, setFrameUrl] = useState<string | null>(null);
+  const [duration, setDuration] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!videoUrl) {
+      setFrameUrl(null);
+      setDuration(0);
+      return;
+    }
+    
+    const video = document.createElement('video');
+    video.src = videoUrl;
+    video.crossOrigin = 'anonymous';
+    video.muted = true;
+    video.playsInline = true;
+    videoRef.current = video;
+
+    const canvas = document.createElement('canvas');
+    canvasRef.current = canvas;
+
+    video.addEventListener('loadedmetadata', () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      setDuration(video.duration);
+      video.currentTime = time;
+    });
+
+    video.addEventListener('seeked', () => {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        setFrameUrl(canvas.toDataURL('image/jpeg', 0.8));
+      }
+    });
+
+    return () => {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    };
+  }, [videoUrl]);
+
+  useEffect(() => {
+    if (videoRef.current && videoRef.current.readyState >= 1) {
+      videoRef.current.currentTime = time;
+    }
+  }, [time]);
+
+  return { frameUrl, duration };
+};
+
+const useVideoThumbnails = (videoUrl: string | null, count: number = 8) => {
+  const [thumbnails, setThumbnails] = useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    if (!videoUrl) {
+      setThumbnails([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsGenerating(true);
+
+    const generate = async () => {
+      const video = document.createElement('video');
+      video.src = videoUrl;
+      video.crossOrigin = 'anonymous';
+      video.muted = true;
+      video.playsInline = true;
+
+      await new Promise((resolve) => {
+        video.addEventListener('loadedmetadata', resolve, { once: true });
+        video.addEventListener('error', resolve, { once: true });
+      });
+
+      if (isCancelled || !video.duration) {
+        setIsGenerating(false);
+        return;
+      }
+
+      const duration = video.duration;
+      const canvas = document.createElement('canvas');
+      const aspect = video.videoWidth / video.videoHeight;
+      canvas.height = 60;
+      canvas.width = 60 * aspect;
+      const ctx = canvas.getContext('2d');
+      const thumbs: string[] = [];
+
+      for (let i = 0; i < count; i++) {
+        if (isCancelled) break;
+        const time = (duration / count) * i + (duration / count) / 2;
+        video.currentTime = time;
+        await new Promise((resolve) => {
+          video.addEventListener('seeked', resolve, { once: true });
+        });
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          thumbs.push(canvas.toDataURL('image/jpeg', 0.5));
+        }
+      }
+
+      if (!isCancelled) {
+        setThumbnails(thumbs);
+        setIsGenerating(false);
+      }
+    };
+
+    generate();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [videoUrl, count]);
+
+  return { thumbnails, isGenerating };
+};
+
+export default function CoverEditor() {
+  const [lang, setLang] = useState<'en' | 'zh'>('en');
+  const t = i18n[lang];
+
+  const [activeTab, setActiveTab] = useState<'background' | 'text' | 'style'>('background');
+  
+  const [bgType, setBgType] = useState<'color' | 'image' | 'video'>('color');
+  const [bgColor, setBgColor] = useState('#1a1a1a');
+  const [bgImage, setBgImage] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoTime, setVideoTime] = useState(0);
+  
+  const { frameUrl, duration: videoDuration } = useVideoFrame(videoUrl, videoTime);
+  const { thumbnails, isGenerating: isGeneratingThumbs } = useVideoThumbnails(videoUrl, 8);
+
+  const [ratio, setRatio] = useState<keyof typeof aspectRatios>('16:9');
+
+  const [text, setText] = useState(i18n.en.defaultText);
+  const [textStyleId, setTextStyleId] = useState('orange-3d');
+  const [fontSize, setFontSize] = useState(120);
+  const [textColor, setTextColor] = useState('#ffffff');
+
+  const prevRatioRef = useRef(ratio);
+  useEffect(() => {
+    if (prevRatioRef.current !== ratio) {
+      const prevWidth = aspectRatios[prevRatioRef.current].w;
+      const newWidth = aspectRatios[ratio].w;
+      setFontSize(prev => Math.max(20, Math.round(prev * (newWidth / prevWidth))));
+      prevRatioRef.current = ratio;
+    }
+  }, [ratio]);
+
+  useEffect(() => {
+    if (lang === 'en' && text === i18n.zh.defaultText) setText(i18n.en.defaultText);
+    if (lang === 'zh' && text === i18n.en.defaultText) setText(i18n.zh.defaultText);
+  }, [lang, text]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [isSelected, setIsSelected] = useState(false);
+  
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+
+  const handleDragStart = (e: React.PointerEvent) => {
+    // Only handle left click
+    if (e.button !== 0) return;
+    
+    e.stopPropagation();
+    setIsSelected(true);
+    
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startPosX = x.get();
+    const startPosY = y.get();
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      // Divide by scale to ensure element tracks mouse perfectly
+      const deltaX = (moveEvent.clientX - startX) / scale;
+      const deltaY = (moveEvent.clientY - startY) / scale;
+      
+      x.set(startPosX + deltaX);
+      y.set(startPosY + deltaY);
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const handleResizeStart = (e: React.PointerEvent, position: string) => {
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startFontSize = fontSize;
+    const startWidth = textRef.current?.offsetWidth || 1;
+    const startHeight = textRef.current?.offsetHeight || 1;
+    const startPosX = x.get();
+    const startPosY = y.get();
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      const deltaX = (moveEvent.clientX - startX) / scale;
+      
+      let widthDelta = 0;
+      if (position === 'bottom-right' || position === 'top-right') widthDelta = deltaX;
+      if (position === 'bottom-left' || position === 'top-left') widthDelta = -deltaX;
+
+      const scaleFactor = Math.max(0.1, 1 + widthDelta / startWidth);
+      const newFontSize = startFontSize * scaleFactor;
+      setFontSize(Math.round(newFontSize));
+
+      const widthDiff = startWidth * (scaleFactor - 1);
+      const heightDiff = startHeight * (scaleFactor - 1);
+
+      let newX = startPosX;
+      let newY = startPosY;
+
+      if (position === 'bottom-right') {
+        newX = startPosX + widthDiff / 2;
+        newY = startPosY + heightDiff / 2;
+      } else if (position === 'bottom-left') {
+        newX = startPosX - widthDiff / 2;
+        newY = startPosY + heightDiff / 2;
+      } else if (position === 'top-right') {
+        newX = startPosX + widthDiff / 2;
+        newY = startPosY - heightDiff / 2;
+      } else if (position === 'top-left') {
+        newX = startPosX - widthDiff / 2;
+        newY = startPosY - heightDiff / 2;
+      }
+
+      x.set(newX);
+      y.set(newY);
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  };
+
+  const ResizeHandle = ({ position }: { position: string }) => {
+    const getCursor = () => {
+      if (position === 'top-left' || position === 'bottom-right') return 'nwse-resize';
+      if (position === 'top-right' || position === 'bottom-left') return 'nesw-resize';
+      return 'pointer';
+    };
+
+    return (
+      <div
+        className={cn(
+          "absolute w-6 h-6 bg-white border-[3px] border-blue-500 rounded-full shadow-md z-50",
+          position === 'top-left' && "-top-3 -left-3",
+          position === 'top-right' && "-top-3 -right-3",
+          position === 'bottom-left' && "-bottom-3 -left-3",
+          position === 'bottom-right' && "-bottom-3 -right-3",
+        )}
+        style={{ cursor: getCursor() }}
+        onPointerDown={(e) => handleResizeStart(e, position)}
+      />
+    );
+  };
+
+  useEffect(() => {
+    const updateScale = () => {
+      if (containerRef.current) {
+        const parentWidth = containerRef.current.clientWidth;
+        const parentHeight = containerRef.current.clientHeight;
+        
+        const targetWidth = aspectRatios[ratio].w;
+        const targetHeight = aspectRatios[ratio].h;
+        
+        const padding = 80;
+        const scaleX = (parentWidth - padding) / targetWidth;
+        const scaleY = (parentHeight - padding) / targetHeight;
+        
+        setScale(Math.min(scaleX, scaleY));
+      }
+    };
+    
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [ratio]);
+
+  const handleDownload = async () => {
+    if (!exportRef.current) return;
+    
+    setIsSelected(false);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    try {
+      const dataUrl = await toPng(exportRef.current, {
+        quality: 1,
+        pixelRatio: 1,
+        cacheBust: true,
+      });
+      
+      const link = document.createElement('a');
+      link.download = `cover-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Failed to export image', err);
+      alert(t.exportFail);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    if (file.type.startsWith('video/')) {
+      setBgType('video');
+      setVideoUrl(url);
+      setBgImage(null);
+      setVideoTime(0);
+    } else if (file.type.startsWith('image/')) {
+      setBgType('image');
+      setBgImage(url);
+      setVideoUrl(null);
+    }
+  };
+
+  const currentBg = bgType === 'video' ? frameUrl : bgImage;
+
+  return (
+    <div className="flex flex-col lg:flex-row flex-1 bg-[#0A0A0A] text-white overflow-hidden font-sans">
+      {/* Canvas Area */}
+      <div ref={containerRef} className="flex-1 relative flex items-center justify-center bg-[#0A0A0A] p-4 lg:p-8 overflow-hidden">
+        {/* Scale Wrapper */}
+        <div 
+          className="relative shadow-2xl transition-all duration-200 ease-out"
+          style={{ 
+            width: aspectRatios[ratio].w * scale, 
+            height: aspectRatios[ratio].h * scale,
+          }}
+        >
+          <div
+            className="absolute top-0 left-0 origin-top-left"
+            style={{
+              width: aspectRatios[ratio].w,
+              height: aspectRatios[ratio].h,
+              transform: `scale(${scale})`
+            }}
+          >
+            <div ref={exportRef} className="w-full h-full relative overflow-hidden ring-1 ring-white/20" style={{ backgroundColor: bgColor }}>
+              {currentBg && (
+                <img src={currentBg} className="w-full h-full object-cover" alt="Background" />
+              )}
+              
+              <div 
+                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                onPointerDown={() => setIsSelected(false)}
+              >
+                <motion.div
+                  style={{ x, y, willChange: isSelected ? 'transform' : 'auto' }}
+                  onPointerDown={handleDragStart}
+                  className={cn(
+                    "cursor-move pointer-events-auto relative",
+                    isSelected && "ring-2 ring-blue-500 ring-offset-4 ring-offset-transparent"
+                  )}
+                >
+                  <div ref={textRef} className="pointer-events-none">
+                    <TextOverlay text={text} styleId={textStyleId} fontSize={fontSize} color={textColor} />
+                  </div>
+                  
+                  {isSelected && (
+                    <>
+                      <ResizeHandle position="top-left" />
+                      <ResizeHandle position="top-right" />
+                      <ResizeHandle position="bottom-left" />
+                      <ResizeHandle position="bottom-right" />
+                    </>
+                  )}
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Top Bar in Canvas Area */}
+        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
+          <div className="flex gap-4 items-center pointer-events-auto">
+            <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium">
+              {aspectRatios[ratio].w} x {aspectRatios[ratio].h}
+            </div>
+            <button 
+              onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
+              className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium hover:bg-black/70 transition-colors"
+            >
+              {lang === 'en' ? '中' : 'EN'}
+            </button>
+          </div>
+          <button 
+            onClick={handleDownload}
+            className="bg-[#00FF66] text-black px-6 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-[#00CC55] transition-colors pointer-events-auto shadow-[0_0_15px_rgba(0,255,102,0.3)]"
+          >
+            <Download size={18} />
+            {t.exportBtn}
+          </button>
+        </div>
+      </div>
+
+      {/* Controls Area */}
+      <div className="w-full lg:w-[400px] bg-[#111111] border-t lg:border-t-0 lg:border-l border-white/5 flex flex-col h-[50vh] lg:h-full shrink-0 z-20">
+        {/* Tabs */}
+        <div className="flex border-b border-white/5">
+          {[
+            { id: 'background', label: t.bgTab, icon: ImageIcon },
+            { id: 'text', label: t.textTab, icon: Type },
+            { id: 'style', label: t.styleTab, icon: Palette }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={cn(
+                "flex-1 py-4 text-sm font-medium transition-colors flex items-center justify-center gap-2",
+                activeTab === tab.id ? "text-white border-b-2 border-white" : "text-neutral-500 hover:text-neutral-300"
+              )}
+            >
+              <tab.icon size={16} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        
+        {/* Tab Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === 'background' && (
+            <div className="space-y-8">
+              {/* Ratio Selector */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-3">{t.ratio}</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(aspectRatios).map(([key, val]) => (
+                    <button
+                      key={key}
+                      onClick={() => setRatio(key as any)}
+                      className={cn(
+                        "py-3 rounded-xl text-sm font-medium transition-colors border",
+                        ratio === key ? "bg-[#00FF66]/10 text-[#00FF66] border-[#00FF66]" : "bg-black text-neutral-400 border-white/5 hover:bg-white/5"
+                      )}
+                    >
+                      {(t as any)[val.labelKey]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Upload */}
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-3">{t.uploadTitle}</label>
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/10 rounded-xl hover:border-[#00FF66]/50 hover:bg-[#00FF66]/5 transition-colors cursor-pointer bg-black">
+                  <Upload className="w-8 h-8 text-neutral-500 mb-2" />
+                  <span className="text-sm text-neutral-400">{t.uploadDesc}</span>
+                  <input 
+                    type="file" 
+                    accept="image/*,video/*" 
+                    className="hidden" 
+                    onChange={handleFileUpload}
+                  />
+                </label>
+              </div>
+
+              {/* Video Frame Slider */}
+              {bgType === 'video' && videoDuration > 0 && (
+                <div className="bg-black p-4 rounded-xl border border-white/5">
+                  <label className="flex justify-between text-sm font-medium text-neutral-300 mb-3">
+                    <span>{t.extractFrame}</span>
+                    <span className="text-neutral-500">{videoTime.toFixed(1)}s / {videoDuration.toFixed(1)}s</span>
+                  </label>
+                  
+                  <div className="relative w-full h-14 bg-[#111111] rounded-lg overflow-hidden flex border border-white/5">
+                    {isGeneratingThumbs ? (
+                      <div className="absolute inset-0 flex items-center justify-center text-xs text-neutral-500 animate-pulse">
+                        {t.generatingThumbs}
+                      </div>
+                    ) : (
+                      thumbnails.map((thumb, idx) => (
+                        <img key={idx} src={thumb} className="flex-1 h-full object-cover opacity-60 pointer-events-none" alt="" />
+                      ))
+                    )}
+                    
+                    {/* Custom Thumb Indicator */}
+                    <div 
+                      className="absolute top-0 bottom-0 w-0.5 bg-white shadow-[0_0_2px_rgba(0,0,0,0.8)] z-10 pointer-events-none"
+                      style={{ left: `${(videoTime / videoDuration) * 100}%`, marginLeft: '-1px' }}
+                    >
+                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-8 bg-white rounded-sm shadow-md"></div>
+                    </div>
+
+                    <input 
+                      type="range" 
+                      min={0} 
+                      max={videoDuration} 
+                      step={0.01}
+                      value={videoTime}
+                      onChange={(e) => setVideoTime(parseFloat(e.target.value))}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Background Color Fallback */}
+              {bgType === 'color' && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-3">{t.solidColor}</label>
+                  <div className="flex gap-2">
+                    {['#1a1a1a', '#FF5A1F', '#6366F1', '#10B981', '#F59E0B', '#EF4444'].map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setBgColor(c)}
+                        className={cn(
+                          "w-10 h-10 rounded-full border-2",
+                          bgColor === c ? "border-[#00FF66] scale-110" : "border-transparent hover:scale-110"
+                        )}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'text' && (
+            <div className="space-y-8">
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-3">{t.coverText}</label>
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  className="w-full h-32 bg-black border border-white/5 rounded-xl p-4 text-white placeholder-neutral-500 focus:outline-none focus:border-[#00FF66] resize-none transition-colors"
+                  placeholder={t.textPlaceholder}
+                />
+              </div>
+              
+              <div>
+                <label className="flex justify-between text-sm font-medium text-neutral-400 mb-3">
+                  <span>{t.fontSize}</span>
+                  <span>{fontSize}px</span>
+                </label>
+                <input 
+                  type="range" 
+                  min={40} 
+                  max={300} 
+                  value={fontSize}
+                  onChange={(e) => setFontSize(parseInt(e.target.value))}
+                  className="w-full accent-[#00FF66]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-3">{t.textColor}</label>
+                <div className="flex gap-2">
+                  {['#ffffff', '#000000', '#FF5A1F', '#FFD700', '#4F46E5', '#10B981'].map(c => (
+                    <button
+                      key={c}
+                      onClick={() => setTextColor(c)}
+                      className={cn(
+                        "w-10 h-10 rounded-full border-2",
+                        textColor === c ? "border-[#00FF66] scale-110" : "border-transparent hover:scale-110"
+                      )}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'style' && (
+            <div className="space-y-6">
+              <label className="block text-sm font-medium text-neutral-400 mb-3">{t.textBgStyle}</label>
+              <div className="grid grid-cols-2 gap-4">
+                {TEXT_BG_STYLES.map(style => (
+                  <button
+                    key={style.id}
+                    onClick={() => setTextStyleId(style.id)}
+                    className={cn(
+                      "h-32 rounded-xl border-2 flex flex-col items-center justify-center overflow-hidden relative transition-all bg-black",
+                      textStyleId === style.id ? "border-[#00FF66] bg-white/5" : "border-white/5 hover:border-white/20"
+                    )}
+                  >
+                    <div className="scale-[0.2] origin-center pointer-events-none absolute">
+                      <TextOverlay text={t.stylePreview} styleId={style.id} fontSize={100} color={textColor} />
+                    </div>
+                    <span className="absolute bottom-2 text-xs text-neutral-400 font-medium">{(t as any)[style.nameKey]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
