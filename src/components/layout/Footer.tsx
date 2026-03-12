@@ -27,7 +27,7 @@ export default function Footer() {
               <span className="sr-only">Twitter</span>
               <Twitter className="w-4 h-4" />
             </a>
-            <a href="https://github.com" target="_blank" rel="noreferrer" className="text-neutral-500 hover:text-[#00FF66] transition-colors">
+            <a href="https://github.com/hengtuibabai/video-cover-maker" target="_blank" rel="noreferrer" className="text-neutral-500 hover:text-[#00FF66] transition-colors">
               <span className="sr-only">GitHub</span>
               <Github className="w-4 h-4" />
             </a>
