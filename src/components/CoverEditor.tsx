@@ -156,6 +156,13 @@ export default function CoverEditor() {
   const [textStyleId, setTextStyleId] = useState('orange-3d');
   const [fontSize, setFontSize] = useState(120);
   const [textColor, setTextColor] = useState('#ffffff');
+  const [fontFamily, setFontFamily] = useState('sans-serif');
+  const [fontWeight, setFontWeight] = useState('900');
+  const [fontStyle, setFontStyle] = useState('normal');
+  const [textDecoration, setTextDecoration] = useState('none');
+  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [strokeColor, setStrokeColor] = useState('transparent');
+  const [strokeWidth, setStrokeWidth] = useState(0);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -207,6 +214,7 @@ export default function CoverEditor() {
     const config = {
       bgType, bgColor, bgImage, videoUrl, videoTime,
       ratio, text, textStyleId, fontSize, textColor,
+      fontFamily, fontWeight, fontStyle, textDecoration, textAlign, strokeColor, strokeWidth,
       x: x.get(), y: y.get()
     };
 
@@ -243,7 +251,7 @@ export default function CoverEditor() {
       handleSaveCurrentProject();
     }, 2000);
     return () => clearTimeout(timer);
-  }, [bgType, bgColor, bgImage, videoUrl, videoTime, ratio, text, textStyleId, fontSize, textColor]);
+  }, [bgType, bgColor, bgImage, videoUrl, videoTime, ratio, text, textStyleId, fontSize, textColor, fontFamily, fontWeight, fontStyle, textDecoration, textAlign, strokeColor, strokeWidth]);
 
   const handleLoadProject = (project: Project) => {
     setCurrentProjectId(project.id);
@@ -259,6 +267,13 @@ export default function CoverEditor() {
       setTextStyleId(c.textStyleId || 'orange-3d');
       setFontSize(c.fontSize || 120);
       setTextColor(c.textColor || '#ffffff');
+      setFontFamily(c.fontFamily || 'sans-serif');
+      setFontWeight(c.fontWeight || '900');
+      setFontStyle(c.fontStyle || 'normal');
+      setTextDecoration(c.textDecoration || 'none');
+      setTextAlign(c.textAlign || 'center');
+      setStrokeColor(c.strokeColor || 'transparent');
+      setStrokeWidth(c.strokeWidth || 0);
       x.set(c.x || 0);
       y.set(c.y || 0);
     }
@@ -276,6 +291,13 @@ export default function CoverEditor() {
     setTextStyleId('orange-3d');
     setFontSize(120);
     setTextColor('#ffffff');
+    setFontFamily('sans-serif');
+    setFontWeight('900');
+    setFontStyle('normal');
+    setTextDecoration('none');
+    setTextAlign('center');
+    setStrokeColor('transparent');
+    setStrokeWidth(0);
     x.set(0);
     y.set(0);
   };
@@ -519,7 +541,19 @@ export default function CoverEditor() {
                   )}
                 >
                   <div ref={textRef} className="pointer-events-none">
-                    <TextOverlay text={text} styleId={textStyleId} fontSize={fontSize} color={textColor} />
+                    <TextOverlay 
+                      text={text} 
+                      styleId={textStyleId} 
+                      fontSize={fontSize} 
+                      color={textColor} 
+                      fontFamily={fontFamily}
+                      fontWeight={fontWeight}
+                      fontStyle={fontStyle}
+                      textDecoration={textDecoration}
+                      textAlign={textAlign}
+                      strokeColor={strokeColor}
+                      strokeWidth={strokeWidth}
+                    />
                   </div>
                   
                   {isSelected && (
@@ -725,6 +759,113 @@ export default function CoverEditor() {
                   ))}
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-3">{t.fontFamily}</label>
+                <select
+                  value={fontFamily}
+                  onChange={(e) => setFontFamily(e.target.value)}
+                  className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[#00FF66] transition-colors"
+                >
+                  <option value="sans-serif">Sans Serif</option>
+                  <option value="serif">Serif</option>
+                  <option value="monospace">Monospace</option>
+                  <option value="Inter">Inter</option>
+                  <option value="Arial">Arial</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="Courier New">Courier New</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-3">{t.fontWeight}</label>
+                  <select
+                    value={fontWeight}
+                    onChange={(e) => setFontWeight(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[#00FF66] transition-colors"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="bold">Bold</option>
+                    <option value="900">Black</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-3">{t.fontStyle}</label>
+                  <select
+                    value={fontStyle}
+                    onChange={(e) => setFontStyle(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[#00FF66] transition-colors"
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="italic">Italic</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-3">{t.textDecoration}</label>
+                  <select
+                    value={textDecoration}
+                    onChange={(e) => setTextDecoration(e.target.value)}
+                    className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:border-[#00FF66] transition-colors"
+                  >
+                    <option value="none">None</option>
+                    <option value="underline">Underline</option>
+                    <option value="line-through">Strike</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-400 mb-3">{t.textAlign}</label>
+                <div className="flex gap-2">
+                  {(['left', 'center', 'right'] as const).map(align => (
+                    <button
+                      key={align}
+                      onClick={() => setTextAlign(align)}
+                      className={cn(
+                        "flex-1 py-2 rounded-xl border text-sm font-medium transition-colors",
+                        textAlign === align ? "border-[#00FF66] text-[#00FF66] bg-[#00FF66]/10" : "border-white/10 text-neutral-400 hover:border-white/20 hover:text-white"
+                      )}
+                    >
+                      {align.charAt(0).toUpperCase() + align.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="flex justify-between text-sm font-medium text-neutral-400 mb-3">
+                  <span>{t.strokeWidth}</span>
+                  <span>{strokeWidth}px</span>
+                </label>
+                <input 
+                  type="range" 
+                  min={0} 
+                  max={20} 
+                  value={strokeWidth}
+                  onChange={(e) => setStrokeWidth(parseInt(e.target.value))}
+                  className="w-full accent-[#00FF66]"
+                />
+              </div>
+
+              {strokeWidth > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-neutral-400 mb-3">{t.strokeColor}</label>
+                  <div className="flex gap-2">
+                    {['#000000', '#ffffff', '#FF5A1F', '#FFD700', '#4F46E5', '#10B981'].map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setStrokeColor(c)}
+                        className={cn(
+                          "w-10 h-10 rounded-full border-2",
+                          strokeColor === c ? "border-[#00FF66] scale-110" : "border-transparent hover:scale-110"
+                        )}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -742,7 +883,19 @@ export default function CoverEditor() {
                     )}
                   >
                     <div className="scale-[0.2] origin-center pointer-events-none absolute">
-                      <TextOverlay text={t.stylePreview} styleId={style.id} fontSize={100} color={textColor} />
+                      <TextOverlay 
+                        text={t.stylePreview} 
+                        styleId={style.id} 
+                        fontSize={100} 
+                        color={textColor} 
+                        fontFamily={fontFamily}
+                        fontWeight={fontWeight}
+                        fontStyle={fontStyle}
+                        textDecoration={textDecoration}
+                        textAlign={textAlign}
+                        strokeColor={strokeColor}
+                        strokeWidth={strokeWidth}
+                      />
                     </div>
                     <span className="absolute bottom-2 text-xs text-neutral-400 font-medium">{(t as any)[style.nameKey]}</span>
                   </button>

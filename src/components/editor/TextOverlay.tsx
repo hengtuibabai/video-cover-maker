@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '../CoverEditor';
 
 const get3DShadow = (depth: number, color: string) => {
   const shadow = [];
@@ -13,17 +14,43 @@ interface TextOverlayProps {
   styleId: string;
   fontSize: number;
   color: string;
+  fontFamily?: string;
+  fontWeight?: string;
+  fontStyle?: string;
+  textDecoration?: string;
+  textAlign?: 'left' | 'center' | 'right';
+  strokeColor?: string;
+  strokeWidth?: number;
 }
 
-export const TextOverlay: React.FC<TextOverlayProps> = ({ text, styleId, fontSize, color }) => {
+export const TextOverlay: React.FC<TextOverlayProps> = ({ 
+  text, styleId, fontSize, color,
+  fontFamily = 'sans-serif',
+  fontWeight = '900',
+  fontStyle = 'normal',
+  textDecoration = 'none',
+  textAlign = 'center',
+  strokeColor = 'transparent',
+  strokeWidth = 0
+}) => {
   const lines = text.split('\n');
   
+  const baseStyle: React.CSSProperties = {
+    fontFamily,
+    fontWeight,
+    fontStyle,
+    textDecoration,
+    textAlign,
+    WebkitTextStroke: strokeWidth > 0 ? `${strokeWidth}px ${strokeColor}` : undefined,
+  };
+
   switch (styleId) {
     case 'orange-3d':
       return (
         <div 
-          className="bg-[#FF5A1F] font-black text-center" 
+          className="bg-[#FF5A1F]" 
           style={{ 
+            ...baseStyle,
             padding: '0.3em 0.5em',
             boxShadow: get3DShadow(Math.round(fontSize * 0.35), '#C83D0E'),
             color: color,
@@ -38,8 +65,8 @@ export const TextOverlay: React.FC<TextOverlayProps> = ({ text, styleId, fontSiz
     case 'black-quote':
       return (
         <div 
-          className="bg-[#2A2A2A] relative font-black inline-block"
-          style={{ padding: '0.4em 0.6em', color, fontSize: `${fontSize}px`, lineHeight: '1.3', borderRadius: '0.1em' }}
+          className="bg-[#2A2A2A] relative inline-block"
+          style={{ ...baseStyle, padding: '0.4em 0.6em', color, fontSize: `${fontSize}px`, lineHeight: '1.3', borderRadius: '0.1em' }}
         >
           <div className="absolute flex gap-[0.1em]" style={{ top: '-0.15em', right: '-0.15em' }}>
             <div className="bg-[#FFD700] rounded-full rotate-[30deg]" style={{ width: '0.15em', height: '0.4em' }}></div>
@@ -55,8 +82,9 @@ export const TextOverlay: React.FC<TextOverlayProps> = ({ text, styleId, fontSiz
     case 'purple-yellow':
       return (
         <div 
-          className="bg-[#6366F1] font-black text-center inline-block"
+          className="bg-[#6366F1] inline-block"
           style={{ 
+            ...baseStyle,
             padding: '0.4em 0.6em', 
             color, 
             fontSize: `${fontSize}px`, 
@@ -70,8 +98,7 @@ export const TextOverlay: React.FC<TextOverlayProps> = ({ text, styleId, fontSiz
     case 'underline':
       return (
         <div 
-          className="font-black text-center"
-          style={{ color, fontSize: `${fontSize}px`, lineHeight: '1.4' }}
+          style={{ ...baseStyle, color, fontSize: `${fontSize}px`, lineHeight: '1.4' }}
         >
           {lines.map((line: string, i: number) => (
             <div key={i} className="inline-block border-[#FFF066]" style={{ borderBottomWidth: '0.12em', paddingBottom: '0.05em', marginBottom: '0.1em' }}>
@@ -83,8 +110,8 @@ export const TextOverlay: React.FC<TextOverlayProps> = ({ text, styleId, fontSiz
     case 'blue-glow':
       return (
         <div 
-          className="font-black text-center flex flex-col items-center"
-          style={{ color, fontSize: `${fontSize}px`, lineHeight: '1.2' }}
+          className={cn("flex flex-col", textAlign === 'left' ? 'items-start' : textAlign === 'right' ? 'items-end' : 'items-center')}
+          style={{ ...baseStyle, color, fontSize: `${fontSize}px`, lineHeight: '1.2' }}
         >
           <div style={{ textShadow: `0 0 0.2em rgba(59, 130, 246, 0.8), 0 0 0.4em rgba(59, 130, 246, 0.8)` }}>
             {lines.map((line: string, i: number) => <div key={i}>{line}</div>)}
@@ -100,8 +127,8 @@ export const TextOverlay: React.FC<TextOverlayProps> = ({ text, styleId, fontSiz
     case 'brackets':
       return (
         <div 
-          className="relative font-black text-center flex items-stretch"
-          style={{ color, fontSize: `${fontSize}px`, lineHeight: '1.3' }}
+          className="relative flex items-stretch"
+          style={{ ...baseStyle, color, fontSize: `${fontSize}px`, lineHeight: '1.3' }}
         >
           <div className="leading-none" style={{ fontSize: '1.1em', transform: 'translateY(-0.1em)' }}>「</div>
           <div style={{ padding: '0 0.1em' }}>
@@ -113,8 +140,7 @@ export const TextOverlay: React.FC<TextOverlayProps> = ({ text, styleId, fontSiz
     default:
       return (
         <div 
-          className="font-black text-center"
-          style={{ color, fontSize: `${fontSize}px`, lineHeight: '1.3' }}
+          style={{ ...baseStyle, color, fontSize: `${fontSize}px`, lineHeight: '1.3' }}
         >
           {lines.map((line: string, i: number) => <div key={i}>{line}</div>)}
         </div>
