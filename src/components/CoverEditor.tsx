@@ -172,6 +172,8 @@ export default function CoverEditor() {
   const textRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [isSelected, setIsSelected] = useState(false);
+  const [showVerticalGuide, setShowVerticalGuide] = useState(false);
+  const [showHorizontalGuide, setShowHorizontalGuide] = useState(false);
   
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -206,6 +208,7 @@ export default function CoverEditor() {
         quality: 0.1,
         pixelRatio: 0.1,
         cacheBust: true,
+        useCORS: true,
       });
     } catch (e) {
       console.warn('Failed to generate thumbnail', e);
@@ -342,11 +345,32 @@ export default function CoverEditor() {
       const deltaX = (moveEvent.clientX - startX) / scale;
       const deltaY = (moveEvent.clientY - startY) / scale;
       
-      x.set(startPosX + deltaX);
-      y.set(startPosY + deltaY);
+      let newX = startPosX + deltaX;
+      let newY = startPosY + deltaY;
+      
+      const SNAP_THRESHOLD = 30;
+      
+      if (Math.abs(newX) < SNAP_THRESHOLD) {
+        newX = 0;
+        setShowVerticalGuide(true);
+      } else {
+        setShowVerticalGuide(false);
+      }
+      
+      if (Math.abs(newY) < SNAP_THRESHOLD) {
+        newY = 0;
+        setShowHorizontalGuide(true);
+      } else {
+        setShowHorizontalGuide(false);
+      }
+      
+      x.set(newX);
+      y.set(newY);
     };
 
     const handlePointerUp = () => {
+      setShowVerticalGuide(false);
+      setShowHorizontalGuide(false);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
@@ -464,6 +488,7 @@ export default function CoverEditor() {
         quality: 1,
         pixelRatio: 1,
         cacheBust: true,
+        useCORS: true,
       });
       
       const link = document.createElement('a');
@@ -480,16 +505,46 @@ export default function CoverEditor() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const url = URL.createObjectURL(file);
     if (file.type.startsWith('video/')) {
+      const url = URL.createObjectURL(file);
       setBgType('video');
       setVideoUrl(url);
       setBgImage(null);
       setVideoTime(0);
     } else if (file.type.startsWith('image/')) {
-      setBgType('image');
-      setBgImage(url);
-      setVideoUrl(null);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const MAX_SIZE = 1920;
+          if (width > MAX_SIZE || height > MAX_SIZE) {
+            if (width > height) {
+              height = Math.round((height * MAX_SIZE) / width);
+              width = MAX_SIZE;
+            } else {
+              width = Math.round((width * MAX_SIZE) / height);
+              height = MAX_SIZE;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            setBgType('image');
+            setBgImage(dataUrl);
+            setVideoUrl(null);
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -525,11 +580,19 @@ export default function CoverEditor() {
           >
             <div ref={exportRef} className="w-full h-full relative overflow-hidden ring-1 ring-white/20" style={{ backgroundColor: bgColor }}>
               {currentBg && (
-                <img src={currentBg} className="w-full h-full object-cover" alt="Background" />
+                <img src={currentBg} crossOrigin="anonymous" className="w-full h-full object-cover" alt="Background" />
+              )}
+              
+              {/* Center Guides */}
+              {showVerticalGuide && (
+                <div className="absolute top-0 bottom-0 left-1/2 w-0 border-l-2 border-dashed border-cyan-400 -translate-x-1/2 z-10 pointer-events-none shadow-[0_0_4px_rgba(0,255,255,0.5)]" />
+              )}
+              {showHorizontalGuide && (
+                <div className="absolute left-0 right-0 top-1/2 h-0 border-t-2 border-dashed border-cyan-400 -translate-y-1/2 z-10 pointer-events-none shadow-[0_0_4px_rgba(0,255,255,0.5)]" />
               )}
               
               <div 
-                className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
                 onPointerDown={() => setIsSelected(false)}
               >
                 <motion.div
