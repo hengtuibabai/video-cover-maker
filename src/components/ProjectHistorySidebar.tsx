@@ -16,6 +16,7 @@ interface ProjectHistorySidebarProps {
   onNewProject: () => void;
   projects: Project[];
   onDeleteProject: (id: string) => void;
+  className?: string;
 }
 
 export function ProjectHistorySidebar({
@@ -23,10 +24,11 @@ export function ProjectHistorySidebar({
   onLoadProject,
   onNewProject,
   projects,
-  onDeleteProject
+  onDeleteProject,
+  className
 }: ProjectHistorySidebarProps) {
   return (
-    <div className="hidden lg:flex w-[280px] bg-[#141414] border-r border-white/10 flex-col h-full shrink-0 z-20">
+    <div className={cn("hidden lg:flex w-[280px] bg-[#141414] border-r border-white/10 flex-col h-full shrink-0 z-50", className)}>
       <div className="p-4 border-b border-white/10 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-neutral-300 flex items-center gap-2">
           <Clock size={16} />

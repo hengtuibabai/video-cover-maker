@@ -208,6 +208,7 @@ export default function CoverEditor() {
         quality: 0.1,
         pixelRatio: 0.1,
         cacheBust: true,
+        // @ts-ignore
         useCORS: true,
       });
     } catch (e) {
@@ -464,7 +465,9 @@ export default function CoverEditor() {
         const targetWidth = aspectRatios[ratio].w;
         const targetHeight = aspectRatios[ratio].h;
         
-        const padding = 80;
+        const isMobile = parentWidth < 1024;
+        const padding = isMobile ? 32 : 80;
+        
         const scaleX = (parentWidth - padding) / targetWidth;
         const scaleY = (parentHeight - padding) / targetHeight;
         
@@ -488,6 +491,7 @@ export default function CoverEditor() {
         quality: 1,
         pixelRatio: 1,
         cacheBust: true,
+        // @ts-ignore
         useCORS: true,
       });
       
@@ -561,7 +565,7 @@ export default function CoverEditor() {
       />
       
       {/* Canvas Area */}
-      <div ref={containerRef} className="flex-1 relative flex items-center justify-center bg-[#0A0A0A] p-4 lg:p-8 overflow-hidden">
+      <div ref={containerRef} className="flex-none h-[45vh] lg:h-auto lg:flex-1 relative flex items-center justify-center bg-[#0A0A0A] p-4 lg:p-8 overflow-hidden touch-none">
         {/* Scale Wrapper */}
         <div 
           className="relative shadow-2xl transition-all duration-200 ease-out"
@@ -634,30 +638,31 @@ export default function CoverEditor() {
         </div>
         
         {/* Top Bar in Canvas Area */}
-        <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10 pointer-events-none">
-          <div className="flex gap-4 items-center pointer-events-auto">
-            <div className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium">
+        <div className="absolute top-2 left-2 right-2 lg:top-4 lg:left-4 lg:right-4 flex justify-between items-center z-30 pointer-events-none">
+          <div className="flex gap-2 lg:gap-4 items-center pointer-events-auto">
+            <div className="bg-black/50 backdrop-blur-md px-2 lg:px-4 py-1.5 lg:py-2 rounded-full text-xs lg:text-sm font-medium">
               {aspectRatios[ratio].w} x {aspectRatios[ratio].h}
             </div>
             <button 
               onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
-              className="bg-black/50 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium hover:bg-black/70 transition-colors"
+              className="bg-black/50 backdrop-blur-md px-3 lg:px-4 py-1.5 lg:py-2 rounded-full text-xs lg:text-sm font-medium hover:bg-black/70 transition-colors"
             >
               {lang === 'en' ? '中' : 'EN'}
             </button>
           </div>
           <button 
             onClick={handleDownload}
-            className="bg-[#00FF66] text-black px-6 py-2 rounded-full font-bold flex items-center gap-2 hover:bg-[#00CC55] transition-colors pointer-events-auto shadow-[0_0_15px_rgba(0,255,102,0.3)]"
+            className="bg-[#00FF66] text-black px-3 lg:px-6 py-1.5 lg:py-2 rounded-full font-bold flex items-center gap-1.5 lg:gap-2 hover:bg-[#00CC55] transition-colors pointer-events-auto shadow-[0_0_15px_rgba(0,255,102,0.3)] text-xs lg:text-base"
           >
-            <Download size={18} />
-            {t.exportBtn}
+            <Download size={16} />
+            <span className="hidden sm:inline">{t.exportBtn}</span>
+            <span className="sm:hidden">{lang === 'en' ? 'Export' : '导出'}</span>
           </button>
         </div>
       </div>
 
       {/* Controls Area */}
-      <div className="w-full lg:w-[400px] bg-[#141414] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col h-[50vh] lg:h-full shrink-0 z-20">
+      <div className="w-full lg:w-[400px] bg-[#141414] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col flex-1 lg:flex-none lg:h-full shrink-0 z-20 overflow-hidden">
         {/* Tabs */}
         <div className="flex border-b border-white/10">
           {[
